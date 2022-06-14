@@ -54,6 +54,10 @@ class TodoDatabase {
     }
   }
 
+
+
+
+//CRUD FOR THE USER
   Future<User> createUser(User user) async {
     final db = await instance.database;
     db!.insert(userTable, user.toJson());
