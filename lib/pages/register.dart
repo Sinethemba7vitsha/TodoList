@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sqlite_provider_starter/models/user.dart';
+import 'package:sqlite_provider_starter/services/user_service.dart';
 import 'package:sqlite_provider_starter/widgets/app_textfield.dart';
+import 'package:sqlite_provider_starter/widgets/dialogs.dart';
 
 class Register extends StatefulWidget {
   const Register({Key? key}) : super(key: key);
@@ -55,16 +59,40 @@ class _RegisterState extends State<Register> {
                       ),
                     ),
                     Focus(
-                      onFocusChange: (value) async {},
+                      onFocusChange: (value) async {
+                        if (!value) {
+                          String result = await context
+                              .read<UserService>()
+                              .checkIfUserExist(
+                                  usernameController.text.trim());
+                          if (result == 'OK') {
+                            context.read<UserService>().userExist = true;
+                          } else {
+                            context.read<UserService>().userExist = false;
+                            if (!result.contains(
+                                'The user does not exist in the database. Please register first.')) {
+                              showSnackBar(context, result);
+                            }
+                          }
+                        }
+                      },
                       child: AppTextField(
                         controller: usernameController,
                         labelText: 'Please enter your username',
                       ),
                     ),
-                    Text(
-                      'username exists, please choose another',
-                      style: TextStyle(
-                          color: Colors.red, fontWeight: FontWeight.w800),
+                    Selector<UserService, bool>(
+                      selector: (context, value) => value.userExist,
+                      builder: (context, value, child) {
+                        return value
+                            ? Text(
+                                'username exists, please choose another',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w800),
+                              )
+                            : Container();
+                      },
                     ),
                     AppTextField(
                       controller: nameController,
@@ -74,7 +102,31 @@ class _RegisterState extends State<Register> {
                       padding: const EdgeInsets.only(top: 8.0),
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(primary: Colors.purple),
-                        onPressed: () async {},
+                        onPressed: () async {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          if (usernameController.text.isEmpty ||
+                              nameController.text.isEmpty) {
+                            showSnackBar(
+                              context,
+                              'Please enter all fields!',
+                            );
+                          } else {
+                            User user = User(
+                              username: usernameController.text.trim(),
+                              name: nameController.text.trim(),
+                            );
+                            String result = await context
+                                .read<UserService>()
+                                .createUser(user);
+                            if (result != 'OK') {
+                              showSnackBar(context, result);
+                            } else {
+                              showSnackBar(
+                                  context, 'New user successfully created!');
+                              Navigator.pop(context);
+                            }
+                          }
+                        },
                         child: Text('Register'),
                       ),
                     ),
@@ -96,6 +148,12 @@ class _RegisterState extends State<Register> {
                 color: Colors.white,
               ),
             ),
+          ),
+          Selector<UserService, bool>(
+            selector: (context, value) => value.busyCreate,
+            builder: (context, value, child) {
+              return value ? AppProgressIndicator() : Container();
+            },
           ),
         ],
       ),
